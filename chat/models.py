@@ -49,7 +49,9 @@ class Message(models.Model):
     def __str__(self):
         return self.author.username
 
-    def last20_messages():
+    def last20_messages(room_name_chat):
         # q = Message.objects.filter(group_name = room_name_chat)
         # print(q)
-        return Message.objects.order_by('-timestamp').all()[:20]
+        q = Message.objects.order_by('-timestamp').filter(group_name=room_name_chat)[:20]
+        print(f'q =========== {q}')
+        return q

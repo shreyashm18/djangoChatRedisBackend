@@ -10,8 +10,10 @@ class ChatConsumer(WebsocketConsumer):
 
     def fetch_messages(self, data):
         # print("Fetch message************************************")
+        self.person_name=self.scope['url_route']['kwargs']['person_name']
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
         print('fetching*********')
-        messages = Message.last20_messages()
+        messages = Message.last20_messages(self.room_name)
         content = {
             'command': 'messages',
             'messages': self.messages_to_json(messages)
@@ -19,12 +21,15 @@ class ChatConsumer(WebsocketConsumer):
         self.send_message(content)
 
     def new_message(self, data):
+        self.person_name=self.scope['url_route']['kwargs']['person_name']
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
         print('new message*********')
         author = data['from']
         author_user = User.objects.filter(first_name = author)[0]
         message = Message.objects.create(
             author = author_user,
-            content = data['message'])
+            content = data['message'],
+            group_name =self.room_name )
 
         content = {
             'command': 'new_message',
