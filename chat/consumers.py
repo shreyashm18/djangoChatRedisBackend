@@ -1,90 +1,61 @@
-# import json
-
-# from asgiref.sync import async_to_sync
-# from channels.generic.websocket import WebsocketConsumer
-# from channels.generic.websocket import AsyncWebsocketConsumer
-
-# import json
-# from channels.generic.websocket import AsyncWebsocketConsumer
-# #from asgiref.sync import await_to_sync
-
-# class ChatConsumer(WebsocketConsumer):
-#     """ handshake websocket front end """
-
-    
-# # async_to_sync (channel_layer.receive) ('test_channel')
-#     def connect(self):
-
-#         self.person_name=self.scope['url_route']['kwargs']['person_name']
-#         self.room_name = self.scope['url_route']['kwargs']['room_name']
-#         self.room_group_name = 'chat_%s' % self.room_name
-
-#         # Join room group
-#         async_to_sync(self.channel_layer.group_add)(
-#             self.room_group_name,
-#             self.channel_name
-#         )
-
-#         async_to_sync(self.channel_layer.group_send)(
-#             self.room_group_name,
-#             {
-#                 "type":"chat_message",
-#                 "message":self.person_name+" Joined Chat"
-#             }
-#         )
-#         self.accept()
-#         self.rooms = set()
-
-#     def disconnect(self, code):
-#         # Leave room group
-#         async_to_sync(self.channel_layer.group_send)(
-#             self.room_group_name,
-#             {
-#                 "type":"chat_message",
-#                 "message":self.person_name+" Left Chat"
-#             }
-#         )
-
-#         async_to_sync(self.channel_layer.group_discard)(
-#                 self.room_group_name,
-#                 self.channel_name
-#             )
-
-#     # Receive message from WebSocket
-#     async def receive(self, text_data=None, bytes_data=None):
-#         text_data_json = json.loads(text_data)
-#         message = text_data_json['message']
-        
-#         # Send message to room group
-#         await self.channel_layer.group_send(
-#             self.room_group_name,
-#             {
-#                 'type': 'chat_message',
-#                 'message':self.person_name+" : "+message   
-#             }
-#         )
-
-#     # Receive message from room group
-#     async def chat_message(self, event):
-#         """ exhange message here """
-#         message = event['message']
-        
-
-#         # Send message to WebSocket
-#         await self.send(text_data=json.dumps({
-#             'message': message,
-#         }))
-
 import json
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
+from .models import Message
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class ChatConsumer(WebsocketConsumer):
+
+    def fetch_messages(self, data):
+        # print("Fetch message************************************")
+        print('fetching*********')
+        messages = Message.last20_messages()
+        content = {
+            'command': 'messages',
+            'messages': self.messages_to_json(messages)
+        }
+        self.send_message(content)
+
+    def new_message(self, data):
+        print('new message*********')
+        author = data['from']
+        author_user = User.objects.filter(first_name = author)[0]
+        message = Message.objects.create(
+            author = author_user,
+            content = data['message'])
+
+        content = {
+            'command': 'new_message',
+            'message': self.message_to_json(message)
+        }
+        return self.send_chat_message(content)
+
+    def messages_to_json(self, messages):
+        result = []
+        for message in messages:
+            result.append(self.message_to_json(message))
+        return result
+
+    def message_to_json(self, message):
+        return {
+            
+            'author': message.author.username,
+            'content': message.author.username+" : "+message.content,
+            'timestamp': str(message.timestamp)
+        }
+
+    commands = {
+        'fetch_messages': fetch_messages,
+        'new_message': new_message
+    }
+
     def connect(self):
         self.person_name=self.scope['url_route']['kwargs']['person_name']
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = 'chat_%s' % self.room_name
-
+        # print(f'self.person_name = {self.person_name}')
         # Join room group
         async_to_sync(self.channel_layer.group_add)(
             self.room_group_name,
@@ -117,23 +88,26 @@ class ChatConsumer(WebsocketConsumer):
 
     # Receive message from WebSocket
     def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json['message']
+        data = json.loads(text_data)
+        self.commands[data['command']](self, data)
 
+    def send_chat_message(self, message):
         # Send message to room group
         async_to_sync(self.channel_layer.group_send)(
             self.room_group_name,
             {
                 'type': 'chat_message',
-                'message':self.person_name+" : "+ message
+                'message':message
             }
         )
 
     # Receive message from room group
+
+    def send_message(self,message):
+        self.send(text_data=json.dumps(message))
+
     def chat_message(self, event):
         message = event['message']
 
         # Send message to WebSocket
-        self.send(text_data=json.dumps({
-            'message': message
-        }))
+        self.send(text_data=json.dumps(message))
