@@ -14,9 +14,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'o+p^7f(6ubt8&p$nr=cwyfl&glnuq#pagb5fa(+n_fpscdkoh='
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -81,14 +81,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
-# CHANNEL_LAYERS = {
-#     "default": {
-#         "BACKEND": "channels_redis.core.RedisChannelLayer",
-#         "CONFIG": {
-#             "hosts": [("redis-server-name", 6379)],
-#         },
-#     },
-# }
 
 
 # WSGI_APPLICATION = 'channel.wsgi.application'
